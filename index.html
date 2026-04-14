@@ -279,6 +279,12 @@ html,body{height:100%;font-family:"DM Sans",sans-serif;color:var(--txt);backgrou
 .ci-i{flex:1;min-width:0}
 .ci-n{font-size:13px;font-weight:600;color:var(--txt)}
 .ci-p{font-size:11px;color:var(--muted);margin-top:1px}
+.ci-note{width:100%;margin-top:7px;font-size:11.5px;color:var(--txt);background:rgba(255,243,220,0.7);border:1px solid rgba(232,89,12,0.25);border-radius:8px;padding:5px 9px;font-family:"DM Sans",sans-serif;resize:none;outline:none;min-height:28px;line-height:1.4;transition:border .15s,background .15s}
+.ci-note:focus{border-color:var(--s);background:rgba(255,243,220,0.95)}
+.ci-note::placeholder{color:rgba(120,70,20,0.45);font-style:italic}
+.ci-note-label{font-size:10px;color:var(--s);font-weight:600;letter-spacing:.03em;margin-top:6px;margin-bottom:2px;display:block}
+.ci-full{flex-direction:column;align-items:stretch}
+.ci-top{display:flex;align-items:center;gap:10px;width:100%}
 .ci-r{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .ci-qb{width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--txt);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .ci-qb:active{background:var(--s);color:#fff;border-color:var(--s)}
@@ -1418,6 +1424,15 @@ function appendUser(text) {
   msgs.appendChild(el); scroll();
 }
 
+function appendBotRaw(htmlContent) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg-row bot-row";
+  wrap.innerHTML = `<img src="${CHEF_IMG}" class="bot-av"><div class="bot-msg" style="padding:8px 10px">${htmlContent}</div>`;
+  const chatEl = document.getElementById("chatMessages");
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
 function appendBot(text, chips=[], dish=null) {
   const msgs = document.getElementById("chatMessages");
   const el = document.createElement("div");
@@ -1468,6 +1483,10 @@ function removeTyping() { const t=document.getElementById("chatTyping"); if(t) t
 // ═══════════════════════════════════════════════
 //  CART
 // ═══════════════════════════════════════════════
+function saveNote(id, val) {
+  if (cart[id]) cart[id].note = val.trim();
+}
+
 function addItem(id, silent=false) {
   const item = MENU.find(i=>i.id===id);
   if (!item||item.oos) { showToast("Sorry, that item is out of stock"); return; }
@@ -1518,17 +1537,39 @@ function renderCartItems() {
   if (taxEl) taxEl.textContent = "$"+tax.toFixed(2);
   document.getElementById("opTotal").textContent = "$"+total.toFixed(2);
   if (!items.length) { document.getElementById("cartItemsEl").innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Your cart is empty</div>'; return; }
-  document.getElementById("cartItemsEl").innerHTML = items.map(item=>`
-    <div class="cart-item">
-      <div class="ci-e">${getItemEmoji(item)}</div>
-      <div class="ci-i"><div class="ci-n">${item.name}</div><div class="ci-p">$${item.price.toFixed(2)} each</div></div>
-      <div class="ci-r">
-        <button class="ci-qb" data-id="${item.id}" data-d="-1" onclick="chQty(this.dataset.id,-1)">−</button>
-        <span class="ci-qn">${item.qty}</span>
-        <button class="ci-qb" data-id="${item.id}" data-d="1" onclick="chQty(this.dataset.id,1)">+</button>
-        <span class="ci-t">$${(item.price*item.qty).toFixed(2)}</span>
+  document.getElementById("cartItemsEl").innerHTML = items.map(item=>{
+    const catHints = {
+      "Biryani":   "e.g. extra spicy, less oil, no raita",
+      "Chicken":   "e.g. extra spicy, boneless, no onion",
+      "Lamb":      "e.g. well done, extra gravy, less spicy",
+      "Seafood":   "e.g. extra spicy, no bones, mild sauce",
+      "Veg":       "e.g. no onion, extra paneer, less spicy",
+      "Indo-Chinese":"e.g. add chicken, extra spicy, no egg",
+      "Bread":     "e.g. extra butter, well done, garlic added",
+      "Dosa":      "e.g. extra crispy, extra chutney, no onion",
+      "Appetizer": "e.g. extra spicy, extra chutney, less oil",
+      "Drinks":    "e.g. less sweet, extra ice, no sugar",
+      "Dessert":   "e.g. extra sweet, warm please, extra portion",
+      "Sides":     "e.g. extra spicy, mild, no garnish"
+    };
+    const hint = catHints[item.cat] || "e.g. extra spicy, no onion, special request";
+    const saved = cart[item.id] && cart[item.id].note ? cart[item.id].note : "";
+    return `
+    <div class="cart-item ci-full">
+      <div class="ci-top">
+        <div class="ci-e">${getItemEmoji(item)}</div>
+        <div class="ci-i"><div class="ci-n">${item.name}</div><div class="ci-p">$${item.price.toFixed(2)} each</div></div>
+        <div class="ci-r">
+          <button class="ci-qb" onclick="chQty('${item.id}',-1)">−</button>
+          <span class="ci-qn">${item.qty}</span>
+          <button class="ci-qb" onclick="chQty('${item.id}',1)">+</button>
+          <span class="ci-t">$${(item.price*item.qty).toFixed(2)}</span>
+        </div>
       </div>
-    </div>`).join("");
+      <span class="ci-note-label">✏️ Special Instructions</span>
+      <textarea class="ci-note" rows="1" placeholder="${hint}" oninput="saveNote('${item.id}',this.value)">${saved}</textarea>
+    </div>`;
+  }).join("");
 }
 
 // ═══════════════════════════════════════════════
@@ -1635,21 +1676,43 @@ function confirmLogin() {
   }
 }
 
-function showGuestLoginPrompt() {
-  // Simple guest name capture so orders are saved locally with a name
-  const name = prompt("Enter your name to save order history (no account needed):");
-  if (name && name.trim()) {
-    currentUser = {
-      name: name.trim(),
-      email: name.trim().toLowerCase().replace(/\s+/g, ".") + "@guest.local",
-      picture: "",
-      sub: "guest_" + Date.now()
-    };
-    localStorage.setItem("toi_user", JSON.stringify(currentUser));
-    updateLoginUI();
-    showToast("Welcome, " + currentUser.name + "! 🎉 Orders will be saved.");
-    appendBot("Welcome " + currentUser.name + "! 🙌 Your orders will now be saved to your history. What would you like today? 😋");
-  }
+function showGuestLoginPrompt(onDone) {
+  const pid = "gp_" + Date.now();
+  window._guestDone = onDone || null;
+  const card = `<div id="${pid}" style="background:linear-gradient(135deg,#fff8ee,#fff3dc);border:1.5px solid rgba(232,89,12,0.3);border-radius:16px;padding:16px;">
+    <div style="font-size:13px;font-weight:700;color:#e8590c;margin-bottom:4px;">👋 Save Your Order History</div>
+    <div style="font-size:11.5px;color:rgba(80,40,0,0.75);margin-bottom:10px;line-height:1.5;">No account needed! Just your name &amp; phone — saved on this device forever 📱</div>
+    <input id="gn_${pid}" type="text" placeholder="Your name (e.g. Priya)" maxlength="40"
+      style="width:100%;box-sizing:border-box;border:1px solid rgba(232,89,12,0.3);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:8px;font-family:inherit;background:#fffaf2;outline:none;">
+    <input id="gph_${pid}" type="tel" placeholder="Phone (e.g. 318-555-1234)" maxlength="20"
+      style="width:100%;box-sizing:border-box;border:1px solid rgba(232,89,12,0.3);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:12px;font-family:inherit;background:#fffaf2;outline:none;">
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveGP('${pid}')" style="flex:1;background:#e8590c;color:#fff;border:none;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Save &amp; Continue ✓</button>
+      <button onclick="skipGP('${pid}')" style="background:rgba(0,0,0,0.07);color:#333;border:none;border-radius:10px;padding:9px 14px;font-size:12px;cursor:pointer;font-family:inherit;">Skip</button>
+    </div>
+  </div>`;
+  appendBotRaw(card);
+}
+
+function saveGP(pid) {
+  const name  = (document.getElementById("gn_" + pid)?.value || "").trim();
+  const phone = (document.getElementById("gph_" + pid)?.value || "").trim();
+  if (!name) { const el = document.getElementById("gn_" + pid); if(el){el.style.borderColor="#e8590c";el.focus();} return; }
+  const sub = "guest_ph_" + phone.replace(/\D/g,"") + "_" + name.replace(/\s/g,"").toLowerCase().slice(0,10);
+  currentUser = { name, phone, picture:"", sub, isGuest:true };
+  localStorage.setItem("toi_user", JSON.stringify(currentUser));
+  document.getElementById(pid)?.closest(".bot-msg")?.parentElement?.remove();
+  updateLoginUI();
+  showToast("Welcome, " + name + "! 🎉");
+  appendBot("Wonderful, " + name + "! 🙌 I'll remember you from now on — no app needed! Let's confirm your order! 🍛", ["Confirm Order","Checkout via WhatsApp"]);
+  if (window._guestDone) { window._guestDone(); window._guestDone = null; }
+}
+
+function skipGP(pid) {
+  if (!currentUser) currentUser = { name:"Guest", phone:"", picture:"", sub:"anon_"+Date.now(), isGuest:true };
+  document.getElementById(pid)?.closest(".bot-msg")?.parentElement?.remove();
+  appendBot("No worries! 👍 Your order will still go through.", ["Confirm Order","Checkout via WhatsApp"]);
+  if (window._guestDone) { window._guestDone(); window._guestDone = null; }
 }
 
 function handleGoogleLogin(response) {
@@ -1696,19 +1759,23 @@ function updateLoginUI() {
 // ═══════════════════════════════════════════════
 //  ORDER HISTORY (localStorage)
 // ═══════════════════════════════════════════════
+function getOrderKey() {
+  if (!currentUser) return "toi_orders_guest";
+  // Use phone as key if available so history persists across sessions on same device
+  if (currentUser.phone) return "toi_orders_ph_" + currentUser.phone.replace(/\D/g,"");
+  return "toi_orders_" + currentUser.sub;
+}
+
 function getOrders() {
-  try {
-    const key = currentUser ? "toi_orders_" + currentUser.sub : "toi_orders_guest";
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem(getOrderKey()) || "[]"); }
+  catch(e) { return []; }
 }
 
 function saveOrder(order) {
-  const key = currentUser ? "toi_orders_" + currentUser.sub : "toi_orders_guest";
   const orders = getOrders();
-  orders.unshift(order); // newest first
-  if (orders.length > 50) orders.length = 50; // keep last 50
-  localStorage.setItem(key, JSON.stringify(orders));
+  orders.unshift({...order, customerName: currentUser?.name || "Guest", customerPhone: currentUser?.phone || ""});
+  if (orders.length > 50) orders.length = 50;
+  localStorage.setItem(getOrderKey(), JSON.stringify(orders));
 }
 
 function openHistory() {
@@ -1827,15 +1894,24 @@ function showSuccessSheet(order, sentWhatsApp) {
 //  CONFIRM ORDER — normal (saves history)
 // ═══════════════════════════════════════════════
 async function confirmOrder() {
-  const h = new Date().getHours(), mins = h*60 + new Date().getMinutes();
-  const isOpen = (new Date().getDay()!==1) && ((mins>=660&&mins<810)||(mins>=1020&&mins<1230));
-  if (!isOpen) {
+  if (!isKitchenOpen()) {
+    const mon = new Date().getDay() === 1;
     showToast("Kitchen is closed right now 🍳");
-    appendBot("Oh no, I know you're hungry — but my kitchen is taking a little nap right now! 😴🍳\n\nWe open for:\n🕐 Lunch: 11am – 1:30pm\n🕕 Dinner: 5pm – 8:30pm\n\nCome back soon and Chef Krish will cook something amazing for you! 🤗", ["Set a reminder","See the menu","What's popular?"]);
+    appendBot(mon
+      ? "Oh no — it's Monday and we are CLOSED! 😔\n\nChef Krish is taking his day of rest! Come back Tue–Sun:\n🕐 Lunch: 11am–1:30pm · 🕕 Dinner: 5–8:30pm"
+      : "Oh no, I know you're hungry — but my kitchen is taking a little nap right now! 😴🍳\n\nWe open for:\n🕐 Lunch: 11am–1:30pm\n🕕 Dinner: 5–8:30pm\n\nCome back soon! 🤗",
+      ["See the menu","What's popular?"]);
     return;
   }
   const order = buildOrderData();
   if (!order) return;
+  if (!currentUser || !currentUser.name || currentUser.name === "Guest") {
+    showGuestLoginPrompt(() => {
+      saveOrder({...order, sentWhatsApp:false});
+      showSuccessSheet(order, false);
+    });
+    return;
+  }
   saveOrder({...order, sentWhatsApp: false});
   showSuccessSheet(order, false);
 }
@@ -1844,9 +1920,7 @@ async function confirmOrder() {
 //  CONFIRM + WHATSAPP
 // ═══════════════════════════════════════════════
 async function confirmOrderWhatsApp() {
-  const h = new Date().getHours(), mins = h*60 + new Date().getMinutes();
-  const isOpen = (new Date().getDay()!==1) && ((mins>=660&&mins<810)||(mins>=1020&&mins<1230));
-  if (!isOpen) {
+  if (!isKitchenOpen()) {
     showToast("Kitchen is closed right now 🍳");
     appendBot("I know, I know — the food smells amazing and you're hungry! 😅\n\nBut Chef Krish is resting right now. We'll be back:\n🕐 Lunch: 11am – 1:30pm\n🕕 Dinner: 5pm – 8:30pm\n\nSave your order and come back! I'll be ready for you 🙏", ["See the menu","What's popular?"]);
     return;
