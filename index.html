@@ -405,10 +405,15 @@ html,body{height:100%;font-family:"DM Sans",sans-serif;color:var(--txt);backgrou
   <div class="rest-name">Taste of India</div>
   <div class="rest-sub">The Authentic Indian Cuisine</div>
   <div style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#1A0800;letter-spacing:0.15em;text-align:center;margin-bottom:10px;text-shadow:0 1px 4px rgba(255,255,255,0.8)">SINCE 2012 · MONROE, LA</div>
+  <div id="mondayBanner" style="display:none;background:rgba(180,30,0,0.92);color:#fff;border-radius:16px;padding:14px 22px;text-align:center;margin:0 24px 14px;max-width:360px;font-size:14px;font-weight:600;line-height:1.7;box-shadow:0 4px 20px rgba(180,30,0,0.4);">
+    😔 Oh no, <strong>we're closed on Mondays!</strong><br>
+    <span style="font-size:12px;font-weight:400;opacity:0.9">Chef Krish takes his well-earned day of rest 😄<br>Come back <strong>Tue–Sun</strong> · Lunch 11am–1:30pm · Dinner 5–8:30pm</span>
+  </div>
   <div style="text-align:center;margin-bottom:4px;">
     <div class="hours-strip" id="weatherHoursRow">
       <span class="hours-status" id="restStatus">Checking...</span>
-      <span class="hours-times">Lunch 11am – 1:30pm<br>Dinner 5pm – 8:30pm</span>
+      <span class="hours-times" id="hoursText">Lunch 11am–1:30pm · Dinner 5–8:30pm</span>
+      <span id="buffetStatus" style="display:block;font-size:10px;margin-top:2px;font-weight:600;"></span>
     </div>
   </div>
   <div class="weather-hero" id="weatherHero">
@@ -815,10 +820,30 @@ function updateWeatherUI() {
   }
 
   const h = new Date().getHours(), mins = h*60 + new Date().getMinutes();
-  const open = (mins>=660&&mins<810)||(mins>=1020&&mins<1230);
+  const open = (new Date().getDay()!==1) && ((mins>=660&&mins<810)||(mins>=1020&&mins<1230));
   const statusEl = document.getElementById("restStatus");
-  statusEl.textContent = open ? "🟢 OPEN NOW" : "🔴 CLOSED";
+  const nowD = new Date();
+  const monDay = nowD.getDay() === 1;
+  const isWeekend = (nowD.getDay() === 0 || nowD.getDay() === 6);
+  statusEl.textContent = open ? "🟢 OPEN NOW" : monDay ? "🔴 CLOSED (Mon)" : "🔴 CLOSED";
   statusEl.className = "hours-status " + (open ? "open" : "closed");
+
+  // Update buffet price display on home screen
+  const buffetEl = document.getElementById("buffetStatus");
+  if (buffetEl) {
+    const bMins = nowD.getHours()*60 + nowD.getMinutes();
+    const buffetNow = !monDay && bMins >= 660 && bMins < 840;
+    if (monDay) {
+      buffetEl.textContent = "No buffet on Mondays";
+      buffetEl.style.color = "rgba(180,30,0,0.8)";
+    } else if (buffetNow) {
+      buffetEl.textContent = "🍛 Lunch Buffet ON NOW — 11am to 2pm";
+      buffetEl.style.color = "#c94800";
+    } else {
+      buffetEl.textContent = "Lunch Buffet: Tue–Sun · 11am – 2pm";
+      buffetEl.style.color = "rgba(80,40,0,0.65)";
+    }
+  }
 }
 
 function openChatAndAdd(itemId) {
@@ -930,9 +955,12 @@ function findDish(q) {
 //  SMART BRAIN — human-like responses
 // ═══════════════════════════════════════════════
 function isKitchenOpen() {
-  const mins = new Date().getHours()*60 + new Date().getMinutes();
+  const now = new Date();
+  if (now.getDay() === 1) return false;
+  const mins = now.getHours()*60 + now.getMinutes();
   return (mins>=660&&mins<810)||(mins>=1020&&mins<1230);
 }
+function isMonday() { return new Date().getDay() === 1; }
 
 function getReply(input) {
   const q = input.toLowerCase().trim();
@@ -940,7 +968,10 @@ function getReply(input) {
   // ── KITCHEN CLOSED CHECK ── (skip for info questions)
   const isInfoQ = /\b(menu|hours|open|close|time|location|address|phone|about|who|what|how much|price|veg|vegetarian|biryani|chicken|lamb|seafood|drink|dessert|ingredient|allerg)\b/.test(q);
   if (!isInfoQ && !isKitchenOpen() && /\b(order|add|want|need|get|buy|give|place|checkout|cart|biryani|curry|rice|naan|dosa|tikka|masala|butter|paneer|lamb|chicken|seafood|shrimp|goat|wrap|samosa|soup|dal|raita)\b/.test(q)) {
-    return { text: "Aww, I know you're hungry — I can feel it! 🥺\n\nBut my kitchen is currently closed. 😢\n\n⏰ We're open:\n• **Lunch** 11am – 1:30pm\n• **Dinner** 5pm – 8:30pm\n\nCome back soon and Chef Krish will personally make sure you eat like royalty! 👑\n\nIn the meantime, want to browse the menu and plan your order?", chips:["Show full menu","What's popular?","Show biryani options","Show veg options"] };
+    const monMsg = isMonday()
+      ? "Oh no — we are CLOSED on Mondays! 😔\n\nChef Krish takes his well-earned day of rest on Mondays! 😄\n\nBut come back **Tuesday through Sunday** and I'll make sure you eat like royalty! 👑\n\n⏰ **Lunch** 11am – 1:30pm\n⏰ **Dinner** 5pm – 8:30pm\n\nWant to browse the menu and plan your order for tomorrow?"
+      : "Aww, I know you're hungry! 🥺\n\nMy kitchen is currently closed. 😢\n\n⏰ We're open (Tue–Sun):\n• **Lunch** 11am – 1:30pm\n• **Dinner** 5pm – 8:30pm\n\nCome back soon — Chef Krish will make you eat like royalty! 👑";
+    return { text: monMsg, chips:["Show full menu","What's popular?","Biryani options","Show veg options"] };
   }
 
   // ── IDENTITY Q&A ──
@@ -955,6 +986,33 @@ function getReply(input) {
   if (/\bkritan\b/.test(q) && (q.includes("who") || q.includes("tell") || q.includes("about") || q.includes("is"))) {
     return { text: "Kritan! \u{1F604} He is one of my developers and best friend who gives support to my God Father Himateja! \u{1F4AA}\n\nThey make a great team! Now, shall I help you find something delicious? \u{1F35B}", chips: ["Show popular dishes", "See full menu", "What\u2019s hot today?"] };
   }
+
+  // ── BUFFET ──
+  if (q.includes("buffet") || q.includes("lunch buffet") || q.includes("do you have buffet") || q.includes("is there buffet") || q.includes("buffet today")) {
+    const now = new Date();
+    const isMon = now.getDay() === 1;
+    const mins = now.getHours()*60 + now.getMinutes();
+    const buffetOpen = !isMon && mins >= 660 && mins < 840; // 11am–2pm, closed Mon
+    const buffetMsg = buffetOpen
+      ? "🍛 Yes! Our lunch buffet is ON right now! Come on in — it's a spread you don't want to miss! 😍"
+      : isMon
+        ? "😔 No buffet today — we're closed on Mondays! Chef Krish needs his rest 😄"
+        : (mins < 660
+          ? `⏰ Buffet starts at 11am — come back in ${Math.round((660-mins))} mins! You're going to love it!`
+          : "🕑 Buffet has ended for today (11am–2pm). Come back tomorrow — Tue through Sun!");
+    const day = now.getDay(); // 0=Sun,1=Mon,6=Sat
+    const isWeekend = (day === 0 || day === 5 || day === 6); // Fri, Sat & Sun
+    const buffetPrice = isWeekend ? 19.99 : 14.99;
+    const priceLabel = isWeekend ? "$19.99 (Fri–Sun)" : "$14.99 (Tue–Thu)";
+    return {
+      text: `${buffetMsg}\n\n🍽️ **Lunch Buffet — ${priceLabel} per person**\n• Available **Tuesday through Sunday**\n• Every day **11am – 2pm**\n• All-you-can-eat — curries, biryanis, naan, salads & more!\n\n💵 **Tue–Thu: $14.99 · Fri–Sun: $19.99**\n\nNo buffet on **Mondays** — kitchen closed.`,
+      chips: buffetOpen
+        ? ["Tell me what's on buffet","Show full menu","Order to-go instead","What's popular?"]
+        : ["Show full menu","Biryani options","What's popular?","Order for pickup"]
+    };
+  }
+
+
 
   // ── GREETINGS ──
   if (/^(hi|hello|hey|namaste|hola|howdy|good morning|good evening|good afternoon|sup|yo)(\s|$|!|\.)/.test(q) || q === "hi" || q === "hello" || q === "hey") {
@@ -1042,22 +1100,41 @@ function getReply(input) {
   }
 
   // ── MENU / WHAT DO YOU HAVE ──
-  if (q.includes("menu") || q.includes("what do you have") || q.includes("what do you serve") || q.includes("whats available") || q.includes("options") || q.includes("list")) {
-    const pops = MENU.filter(i=>i.popular&&!i.oos).slice(0,4);
-    return { text:`Here are our crowd favourites to get you started! 🌟
+  if ((q.includes("show full menu") || q.includes("full menu") || q.includes("see full menu") || q.includes("menu") || q.includes("what do you have") || q.includes("what do you serve") || q.includes("whats available") || q.includes("list")) && !q.includes("biryani") && !q.includes("chicken") && !q.includes("veg") && !q.includes("drink")) {
+    // Pick ONE item from each category to show variety
+    const cats = ["Appetizer","Chicken","Lamb","Seafood","Veg","Biryani","Tandoori","Dosa","Bread","Dessert","Drinks"];
+    const sample = cats.map(c => MENU.find(i=>i.cat===c&&!i.oos)).filter(Boolean).slice(0,6);
+    return {
+      text: `Here's a taste of everything we offer at Taste of India! 🍛
 
-We serve Appetizers, Dosas, Chicken, Lamb, Seafood, Biryanis, Tandoori, Veg dishes, Naan, Indo-Chinese, Desserts & Drinks. Hit the 📋 MENU button below to browse everything!`, dishes:pops, chips:["Chicken dishes","Biryani options","Vegetarian","Tandoori specials"] };
+📋 **Full Menu Categories:**
+🥟 Appetizers · 🫓 Dosa & Bread
+🍖 Chicken, Lamb, Seafood, Tandoori
+🥗 Veg Entrees · 🍚 Biryani
+🍮 Desserts · 🥤 Drinks & Lassi
+
+Tap 📋 MENU below to browse every dish — or ask me anything!`,
+      dishes: sample,
+      chips: ["Chicken dishes","Biryani options","Vegetarian","Tandoori specials"]
+    };
   }
 
   // ── POPULAR / BEST ──
-  if (q.includes("popular") || q.includes("best") || q.includes("famous") || q.includes("most ordered") || q.includes("favourite") || q.includes("top dish")) {
-    const pops = MENU.filter(i=>i.popular&&!i.oos).slice(0,4);
+  if (q.includes("popular") || q.includes("what's popular") || q.includes("whats popular") || q.includes("best") || q.includes("famous") || q.includes("most ordered") || q.includes("favourite") || q.includes("top dish") || q.includes("best seller") || q.includes("recommend")) {
+    const pops = MENU.filter(i=>i.popular&&!i.oos);
+    // Show 6 popular dishes across different categories for variety
+    const seen = new Set();
+    const varied = pops.filter(i => { if(seen.has(i.cat)) return false; seen.add(i.cat); return true; }).slice(0,6);
     const r = [
-      "Our Hall of Fame! 🏆 These are what people keep coming back for:",
-      "The crowd's absolute favourites at Taste of India 🌟:",
-      "These dishes basically sell themselves every day 😍:",
+      "🏆 Our absolute best-sellers — these fly out of the kitchen every day!",
+      "⭐ Monroe's most-loved dishes right here — these are what people keep coming back for!",
+      "🔥 Chef Krish's personal hall of fame — these sell out every single day!"
     ];
-    return { text:r[Math.floor(Math.random()*r.length)], dishes:pops, chips:["Add Butter Chicken","Add Chicken Dum Biryani","Add Mango Lassi"] };
+    return {
+      text: r[Math.floor(Math.random()*r.length)],
+      dishes: varied,
+      chips: ["Biryani options","Chicken dishes","Vegetarian options","Show full menu"]
+    };
   }
 
   // ── SPICY ──
@@ -1101,16 +1178,32 @@ Perfect for you?`, chips:["Add Butter Chicken","Add Chicken Korma","Show more mi
   }
 
   // ── BIRYANI (category) ──
-  if ((q.includes("biryani") || q.includes("biriyani") || q.includes("biriani") || q.includes("dum biryani") || q.includes("dum rice")) && !dish) {
+  if ((q.includes("biryani") || q.includes("biriyani") || q.includes("biriani") || q.includes("biryani options") || q.includes("dum biryani") || q.includes("dum rice")) && !dish) {
     const items = MENU.filter(i=>i.cat==="Biryani"&&!i.oos);
+    const vegBir     = items.filter(i=>i.veg);
     const chickenBir = items.filter(i=>i.name.toLowerCase().includes("chicken"));
-    const lambBir = items.filter(i=>i.name.toLowerCase().includes("lamb")||i.name.toLowerCase().includes("goat"));
-    const vegBir = items.filter(i=>i.veg);
-    const seafoodBir = items.filter(i=>i.name.toLowerCase().includes("shrimp"));
+    const lambBir    = items.filter(i=>i.name.toLowerCase().includes("lamb"));
+    const goatBir    = items.filter(i=>i.name.toLowerCase().includes("goat"));
+    const shrimpBir  = items.filter(i=>i.name.toLowerCase().includes("shrimp"));
+
+    // Build a clean list of every biryani
+    const lines = [];
+    if (vegBir.length)     lines.push("🥗 **Veg Biryani** — " + vegBir.map(i=>`${i.name} $${i.price.toFixed(2)}`).join(", "));
+    if (chickenBir.length) lines.push("🍖 **Chicken Biryani** — " + chickenBir.map(i=>`${i.name} $${i.price.toFixed(2)}`).join(", "));
+    if (lambBir.length)    lines.push("🍖 **Lamb Biryani** — " + lambBir.map(i=>`${i.name} $${i.price.toFixed(2)}`).join(", "));
+    if (goatBir.length)    lines.push("🍖 **Goat Biryani** — " + goatBir.map(i=>`${i.name} $${i.price.toFixed(2)}`).join(", "));
+    if (shrimpBir.length)  lines.push("🍖 **Shrimp Biryani** — " + shrimpBir.map(i=>`${i.name} $${i.price.toFixed(2)}`).join(", "));
+
     return {
-      text: `🍚 Biryani lover — you've come to the RIGHT place! 🤌\n\nWe have **${items.length} incredible biryanis** slow-cooked with saffron, whole spices & pure love:\n\n🍖 **Chicken** (${chickenBir.length}) · 🐑 **Lamb/Goat** (${lambBir.length}) · 🥗 **Veg** (${vegBir.length}) · 🦐 **Shrimp** (1)\n\nHere are our top picks — which one calls to you?`,
-      dishes: items.slice(0,6),
-      chips: ["Chicken Dum Biryani", "Lamb Biryani", "Veg Biryani", "Show all biryanis"]
+      text: `🍚 Great choice! Here are ALL our Biryani options:\n\n${lines.join("\n\n")}\n\nAll biryanis are slow-cooked with saffron, whole spices & pure love! 🤌 Which one would you like?`,
+      dishes: items,
+      chips: [
+        ...vegBir.length ? [vegBir[0].name] : [],
+        ...chickenBir.length ? [chickenBir[0].name] : [],
+        ...lambBir.length ? [lambBir[0].name] : [],
+        ...goatBir.length ? [goatBir[0].name] : [],
+        ...shrimpBir.length ? [shrimpBir[0].name] : []
+      ].slice(0,4)
     };
   }
   if (q.includes("show all biryanis") || q.includes("all biryani") || q.includes("all biryanis")) {
@@ -1228,34 +1321,45 @@ function closeChat() {
 }
 
 function sendFirstMessages() {
-  // Welcome
-  appendBot("Namaste! I am Chef Krish 👨‍🍳 Now that you poked me, you need to bite my food!\nJust go and order what you want! 🍛");
-  // Weather — shown ONCE only
-  setTimeout(() => {
-    if (weatherShownInChat) return;
-    weatherShownInChat = true;
-    const rec = getWeatherRec();
-    const w = weather;
-    let msg = "";
-    if (w.temp) {
-      if (w.isRain)       msg = `☔ Heads up — it's raining in Monroe right now (${w.temp}°F)! Perfect excuse to order something hot and comforting.\n\nChef Krish's pick: **${rec.dish.name}** (${rec.dish.price.toFixed(2)})\n${rec.dish.desc}\n\n${rec.msg}`;
-      else if (w.isHot||w.temp>78) msg = `🌡️ It's ${w.temp}°F out there in Monroe — hot day! Your body is begging for something refreshing.\n\nChef Krish's pick: **${rec.dish.name}** (${rec.dish.price.toFixed(2)})\n${rec.dish.desc}\n\n${rec.msg}`;
-      else if (w.isCold)  msg = `🥶 Brrr! ${w.temp}°F in Monroe — you need something that warms you from inside out!\n\nChef Krish's pick: **${rec.dish.name}** (${rec.dish.price.toFixed(2)})\n${rec.dish.desc}\n\n${rec.msg}`;
-      else                msg = `${w.icon} ${w.temp}°F and ${w.condition} in Monroe today!\n\nChef Krish's pick for today: **${rec.dish.name}** (${rec.dish.price.toFixed(2)})\n${rec.dish.desc}\n\n${rec.msg}`;
-    } else {
-      msg = `Welcome to Taste of India! 🍛\n\nChef Krish's top pick today: **${rec.dish.name}** (${rec.dish.price.toFixed(2)})\n${rec.dish.desc}`;
-    }
-    // For hot weather show cold drinks, for cold show spicy, otherwise normal
-    let chips;
-    if (w.isHot || w.temp > 78) {
-      chips = ["Add Mango Lassi", "Add Sugarcane Juice", "Show full menu", "What's popular?"];
-    } else if (w.isCold || w.temp < 50) {
-      chips = ["Add Chicken Vindaloo", "Add Andhra Chicken Curry", "Something milder", "Show full menu"];
-    } else {
-      chips = [`Add ${rec.dish.name}`, rec.pairing ? `Also add ${rec.pairing.name}` : "Show full menu", "Recommend something else", "Show popular dishes"];
-    }
-    appendBotWithCard(msg, rec.dish, chips);
-  }, 1200);
+  // Welcome — short and punchy
+  const w = weather;
+  const weatherIcon = w.icon || "🌡️";
+  const tempStr = w.temp ? `${w.temp}°F` : "Monroe";
+  appendBot(
+    `Namaste! I am Chef Krish 👨‍🍳 Now that you poked me, you need to bite my food!\nJust go and order what you want! 🍛`,
+    [`${weatherIcon} ${tempStr} — See weather picks`, "What's popular?", "Show full menu", "Biryani options"]
+  );
+}
+
+function showWeatherPicks() {
+  const rec = getWeatherRec();
+  const w = weather;
+  let msg = "";
+  if (w.isRain) {
+    const isThunder = w.condition && w.condition.toLowerCase().includes("thunder");
+    msg = isThunder
+      ? `⛈️ It's ${w.temp}°F with thunderstorms in Monroe! Stay inside and treat yourself!`
+      : `🌧️ ${w.temp}°F and rainy in Monroe — perfect comfort food weather!`;
+  } else if (w.isHot || (w.temp && w.temp > 78)) {
+    msg = `🥵 Oh no, it's ${w.temp}°F outside — you must be roasting! Cool yourself down right now!`;
+  } else if (w.isCold || (w.temp && w.temp < 50)) {
+    msg = `🥶 Brrr! ${w.temp}°F in Monroe! You need something HOT and SPICY to warm your soul!`;
+  } else {
+    msg = `${w.icon} ${w.temp}°F and ${w.condition} in Monroe — a great day to eat something amazing!`;
+  }
+  msg += "\n\n" + rec.cta;
+
+  let chips;
+  if (w.isHot || (w.temp && w.temp > 78)) {
+    chips = ["Add Mango Lassi", "Add Sugarcane Juice", "Add Sweet Lassi", "Show full menu"];
+  } else if (w.isCold || (w.temp && w.temp < 50)) {
+    chips = ["Add Chicken Vindaloo", "Add Andhra Chicken Curry", "Add Chai Tea", "Show full menu"];
+  } else if (w.isRain) {
+    chips = ["Add Butter Chicken", "Add Garlic Naan", "Add Chai Tea", "Show full menu"];
+  } else {
+    chips = rec.dishes ? rec.dishes.filter(Boolean).map(d=>d.name).slice(0,3).concat(["Show full menu"]) : ["Show full menu"];
+  }
+  appendBotWithCard(msg, rec.dish, chips);
 }
 
 // ═══════════════════════════════════════════════
@@ -1466,14 +1570,69 @@ function initGoogleSignIn() {
 }
 
 function triggerGoogleLogin() {
-  if (typeof google !== "undefined") {
+  // Try real Google sign-in first (only works with real Client ID)
+  if (typeof google !== "undefined" && !document.querySelector("meta[name=google-signin-client_id]")?.content?.includes("YOUR_")) {
     try {
       google.accounts.id.prompt();
       return;
     } catch(e) {}
   }
-  // Fallback: show name input for guest order saving
-  showGuestLoginPrompt();
+  // Show the custom login modal (works for everyone without setup)
+  showLoginModal();
+}
+
+function showLoginModal() {
+  // Remove existing modal if any
+  const old = document.getElementById("loginModal");
+  if (old) old.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "loginModal";
+  modal.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);";
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:24px;padding:28px 24px;max-width:320px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:40px;margin-bottom:8px;">👨‍🍳</div>
+      <div style="font-size:18px;font-weight:800;color:#1A0800;margin-bottom:4px;">Save Your Order History</div>
+      <div style="font-size:13px;color:#888;margin-bottom:20px;">Enter your name so Chef Krish can remember your orders!</div>
+      <input id="loginNameInput" type="text" placeholder="Your name (e.g. Sarah)" maxlength="30"
+        style="width:100%;border:2px solid #f0e0cc;border-radius:12px;padding:12px 16px;font-size:15px;font-family:DM Sans,sans-serif;outline:none;box-sizing:border-box;margin-bottom:12px;"
+        onkeydown="if(event.key==='Enter')confirmLogin()">
+      <input id="loginPhoneInput" type="tel" placeholder="Phone (optional)" maxlength="20"
+        style="width:100%;border:2px solid #f0e0cc;border-radius:12px;padding:12px 16px;font-size:15px;font-family:DM Sans,sans-serif;outline:none;box-sizing:border-box;margin-bottom:20px;"
+        onkeydown="if(event.key==='Enter')confirmLogin()">
+      <button onclick="confirmLogin()" style="width:100%;background:#E8590C;color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:DM Sans,sans-serif;margin-bottom:10px;">
+        🎉 Let's Go!
+      </button>
+      <button onclick="document.getElementById('loginModal').remove()" style="background:none;border:none;color:#aaa;font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;">
+        Skip for now
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById("loginNameInput")?.focus(), 100);
+}
+
+function confirmLogin() {
+  const name = document.getElementById("loginNameInput")?.value?.trim();
+  const phone = document.getElementById("loginPhoneInput")?.value?.trim();
+  if (!name) {
+    document.getElementById("loginNameInput").style.border = "2px solid #E8590C";
+    return;
+  }
+  document.getElementById("loginModal")?.remove();
+  currentUser = {
+    name: name,
+    email: phone ? phone + "@taste.local" : name.toLowerCase().replace(/\s+/g,".") + "@taste.local",
+    picture: "",
+    sub: "user_" + name.toLowerCase().replace(/\s+/g,"_") + "_" + Date.now()
+  };
+  localStorage.setItem("toi_user", JSON.stringify(currentUser));
+  updateLoginUI();
+  showToast("Welcome, " + name.split(" ")[0] + "! 🎉 Orders will be saved.");
+  if (typeof appendBot === "function") {
+    appendBot("Welcome " + name.split(" ")[0] + "! 🙌 Your orders are now being saved. What would you like to eat today? 😋",
+      ["Show popular dishes", "Biryani options", "What's the buffet price?", "Show full menu"]);
+  }
 }
 
 function showGuestLoginPrompt() {
@@ -1669,7 +1828,7 @@ function showSuccessSheet(order, sentWhatsApp) {
 // ═══════════════════════════════════════════════
 async function confirmOrder() {
   const h = new Date().getHours(), mins = h*60 + new Date().getMinutes();
-  const isOpen = (mins>=660&&mins<810)||(mins>=1020&&mins<1230);
+  const isOpen = (new Date().getDay()!==1) && ((mins>=660&&mins<810)||(mins>=1020&&mins<1230));
   if (!isOpen) {
     showToast("Kitchen is closed right now 🍳");
     appendBot("Oh no, I know you're hungry — but my kitchen is taking a little nap right now! 😴🍳\n\nWe open for:\n🕐 Lunch: 11am – 1:30pm\n🕕 Dinner: 5pm – 8:30pm\n\nCome back soon and Chef Krish will cook something amazing for you! 🤗", ["Set a reminder","See the menu","What's popular?"]);
@@ -1686,7 +1845,7 @@ async function confirmOrder() {
 // ═══════════════════════════════════════════════
 async function confirmOrderWhatsApp() {
   const h = new Date().getHours(), mins = h*60 + new Date().getMinutes();
-  const isOpen = (mins>=660&&mins<810)||(mins>=1020&&mins<1230);
+  const isOpen = (new Date().getDay()!==1) && ((mins>=660&&mins<810)||(mins>=1020&&mins<1230));
   if (!isOpen) {
     showToast("Kitchen is closed right now 🍳");
     appendBot("I know, I know — the food smells amazing and you're hungry! 😅\n\nBut Chef Krish is resting right now. We'll be back:\n🕐 Lunch: 11am – 1:30pm\n🕕 Dinner: 5pm – 8:30pm\n\nSave your order and come back! I'll be ready for you 🙏", ["See the menu","What's popular?"]);
