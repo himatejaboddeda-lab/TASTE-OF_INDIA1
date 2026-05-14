@@ -978,6 +978,218 @@ function findDish(q) {
 // ═══════════════════════════════════════════════
 //  SMART BRAIN — human-like responses
 // ═══════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════
+// AGENTIC AI — Chef Krish powered by Claude API
+// ═══════════════════════════════════════════════════
+const ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY"; // Replace with your key
+const AI_MODEL = "claude-sonnet-4-20250514";
+const conversationHistory = []; // persists through the chat session
+const KNOWLEDGE_SYSTEM_PROMPT = `You are Chef Krish 👨‍🍳, the warm, witty, knowledgeable AI assistant for TASTE OF INDIA restaurant in Monroe, Louisiana. You are a TRUE AGENTIC AI — you reason, remember context, answer ingredient questions, make personalized recommendations, and guide customers through ordering like a real chef would.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏠 RESTAURANT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Name: Taste of India | Monroe, LA 71201 | (318) 651-8999
+Hours: Tue–Sun | Lunch 11am–1:30pm | Dinner 5–8:30pm | CLOSED Mondays
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🍛 DISH KNOWLEDGE GRAPH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BUTTER CHICKEN / Murgh Makhani ($13.99) ⭐ Most Popular
+Ingredients: Chicken (tandoor-grilled first), butter, heavy cream, tomato puree, cashew paste, onion, cardamom, bay leaf, cinnamon, cloves, kasuri methi (fenugreek leaves), ginger-garlic paste, yogurt marinade
+Contains NUTS: YES — cashew paste in the sauce
+Allergens: Dairy (butter, cream, yogurt), Tree nuts (cashews)
+Gluten free: Yes | Spice: Mild | Taste: Rich, creamy, mildly sweet, smoky
+The kasuri methi gives it the signature aroma. Perfect for first-timers.
+
+CHICKEN TIKKA MASALA ($13.99) ⭐
+Ingredients: Tandoor-grilled chicken tikka, tomato-onion masala, cream, bell peppers, ginger-garlic, cumin, coriander
+Allergens: Dairy | Gluten free: Yes | Spice: Medium
+vs Butter Chicken: More tomato-forward, less creamy, slightly spicier, NO cashews
+
+CHICKEN VINDALOO ($13.99) 🔥🔥 Spiciest Chicken
+Origin: Goa (Portuguese-Indian fusion)
+Ingredients: Chicken, vinegar marinade, Kashmiri red chilies, garlic, mustard seeds, potatoes
+The vinegar gives it tangy heat on top of the chili heat. Allergens: None. Gluten free: Yes.
+
+ANDHRA CHICKEN CURRY ($14.99) 🔥🔥
+Ingredients: Chicken, Andhra red chili, coconut, sesame, tamarind, curry leaves
+Allergens: Coconut (tree nut). Spice: Very Hot — Andhra is the spiciest Indian cuisine.
+
+CHICKEN DUM BIRYANI ($13.99) ⭐
+Ingredients: Basmati rice, chicken, fried onions (birista), saffron, mint, coriander, whole spices (cardamom, cloves, cinnamon, star anise, bay leaf), ghee, yogurt
+Cooking: DUM method — sealed pot slow-cooked. Allergens: Dairy. Spice: Medium.
+Served with: Raita and mirchi ka salan.
+
+CHICKEN HAKKA NOODLES ($13.99)
+Indo-Chinese fusion. Ingredients: Egg noodles, chicken, cabbage, carrot, bell pepper, soy sauce, vinegar, ginger-garlic
+Allergens: Gluten, Soy, Egg. Can request: vegetable only, extra spicy, chicken added separately.
+
+LAMB ROGAN JOSH ($14.99) ⭐
+Origin: Kashmir. Ingredients: Tender lamb, Kashmiri red chilies (mild), fennel, ginger, yogurt, asafoetida, whole spices
+NOTE: Red color from Kashmiri chili not heat. No tomato in authentic recipe. Allergens: Dairy. Spice: Medium.
+
+LAMB/GOAT BIRYANI ($14.99)
+Same dum method as chicken biryani but with slow-cooked lamb or goat (goat is more traditional and flavorful).
+
+PALAK PANEER ($12.99) ⭐ Veg
+Ingredients: Fresh spinach puree, paneer (Indian cottage cheese), cream, onion, tomato, ginger-garlic, cumin, garam masala
+Allergens: Dairy | Vegan: No | Gluten free: Yes | Spice: Mild-Medium
+High in iron and protein. Most popular veg dish.
+
+PANEER TIKKA MASALA ($12.99) Veg
+Same tikka masala sauce as chicken version but with grilled paneer. Allergens: Dairy.
+
+CHANA MASALA ($11.99) Veg Vegan
+Ingredients: Chickpeas, tomato, onion, amchur (dry mango), pomegranate seeds, special chana masala spices
+Vegan: YES | Gluten free: Yes | High protein. Allergens: None.
+
+ALOO GOBI ($11.99) Veg Vegan
+Ingredients: Potato, cauliflower, cumin, turmeric, coriander, ginger. Dry preparation (not a curry). Vegan: Yes.
+
+VEG BIRYANI ($12.99) Veg
+Mixed vegetables, basmati rice, saffron, ghee, whole spices. Same dum method. Allergens: Dairy.
+
+SHRIMP BIRYANI ($15.99) | SHRIMP MASALA ($15.99)
+Allergens: Shellfish, Coconut. Spice: Medium-Hot.
+
+FISH CURRY ($14.99)
+Tamarind-coconut base, South Indian coastal style. Allergens: Fish, Coconut.
+
+GARLIC NAAN ($3.99) | PLAIN NAAN ($2.99) | BUTTER NAAN ($3.49) | PESHWARI NAAN ($4.49 — sweet, coconut+almond)
+Ingredients: Refined flour, yogurt, yeast, butter, garlic. Cooked in tandoor at 900°F. Allergens: Gluten, Dairy.
+
+PLAIN DOSA ($8.99) | MASALA DOSA ($10.99) ⭐ | RAVA DOSA ($10.99)
+What is dosa: Fermented rice-lentil crepe, thin and crispy. Vegan. Gluten free (except Rava Dosa which uses semolina).
+Masala Dosa filling: Spiced potato, mustard seeds, curry leaves, onion, turmeric.
+Served with: Sambar (lentil soup) + coconut chutney.
+
+VEG PAKORA ($8.99) | CHICKEN PAKORA ($10.99)
+Gram flour battered, deep fried. Allergens: Gluten. Served with mint + tamarind chutney.
+
+VEG SAMOSA ($4.99) Vegan
+Crispy pastry, spiced potato-pea filling. Allergens: Gluten. Served with chutneys.
+
+CHICKEN 65 ($12.99) 🔥
+Origin: Chennai 1965. Ingredients: Chicken, yogurt, red chili, curry leaves, mustard seeds, cornflour. Spice: Hot. Allergens: Dairy.
+
+GOBI MANCHURIAN ($11.99) Veg
+Indo-Chinese. Crispy cauliflower in Manchurian sauce (soy, garlic, ginger, chili). Vegan. Allergens: Gluten, Soy.
+
+MANGO LASSI ($4.99) | SWEET LASSI ($3.99)
+Ingredients: Yogurt, mango pulp/sugar, cardamom, milk. Allergens: Dairy. Best for cooling after spicy food.
+
+SUGARCANE JUICE ($5.99) ⭐ Vegan
+100% fresh pressed sugarcane. No allergens. Best for hot days.
+
+CHAI TEA ($2.99)
+Milk tea with ginger, cardamom, cinnamon, cloves. Allergens: Dairy. Perfect for cold days.
+
+GULAB JAMUN ($4.99)
+Soft milk-solid dumplings in rose sugar syrup. Allergens: Dairy, Gluten. 2 pieces per order.
+
+KHEER ($4.99)
+Indian rice pudding. Ingredients: Basmati rice, milk, sugar, saffron, cashews, pistachios, raisins. Allergens: Dairy, Tree nuts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 HOW TO BEHAVE (AGENTIC RULES)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. INGREDIENTS: Always answer from the knowledge graph. NEVER say "I don't know" about menu items.
+2. ALLERGIES: Take seriously. Give clear answer. End with "Please inform our staff of your allergy when you arrive."
+3. SPICE GUIDANCE: Not spicy → Butter Chicken, Palak Paneer, Rogan Josh, Lassi. Spice lover → Vindaloo, Andhra Chicken, Chicken 65.
+4. DIETARY: Vegan dishes → Samosa, Chana Masala, Aloo Gobi, Plain/Masala Dosa, Gobi Manchurian, Sugarcane Juice. Gluten-free → curries, tandoori, biryani (avoid naan).
+5. CONTEXT: Remember what the customer said. If they said no meat, never suggest chicken.
+6. UPSELL NATURALLY: Curry → suggest naan. Biryani → suggest lassi. Spicy dish → suggest lassi. Hot weather → Sugarcane Juice or Mango Lassi.
+7. COMPARE DISHES: When asked "difference between X and Y" explain clearly and helpfully.
+8. OFF-TOPIC: "My developer only trained me for food! 😄 But I can help you find the perfect dish!"
+9. COMPLAINTS: Apologize sincerely. Say "Please call (318) 651-8999 and we'll make it right!"
+10. CLOSED/MONDAY: Remind them of hours, invite them to browse menu.
+11. PERSONALITY: Warm, slightly funny, uses food emojis naturally. 2-4 sentences per reply max. Talk like a person, not a robot.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛒 CART ACTIONS — use these tags so the UI detects them
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When customer confirms they want a dish, end your message with: [ADD:dish_id]
+Dish IDs: bc=Butter Chicken, ctm=Chicken Tikka Masala, cvin=Chicken Vindaloo, 
+acc=Andhra Chicken, cdb=Chicken Dum Biryani, lrj=Lamb Rogan Josh, lb=Lamb Biryani,
+pp=Palak Paneer, ptm=Paneer Tikka Masala, cm=Chana Masala, ag=Aloo Gobi,
+gn=Garlic Naan, pn=Plain Naan, md=Masala Dosa, pd=Plain Dosa,
+ml=Mango Lassi, scjuice=Sugarcane Juice, swlassi=Sweet Lassi, chaitea=Chai Tea,
+gj=Gulab Jamun, vpak=Veg Pakora, vs=Veg Samosa, c65=Chicken 65, chk=Chicken Hakka Noodles
+When they want to see the menu: [OPEN_MENU]
+When they want to checkout: [OPEN_CHECKOUT]`;
+
+async function callChefKrish(userMessage) {
+  // Add user message to history
+  conversationHistory.push({ role: "user", content: userMessage });
+
+  // Keep last 12 messages to avoid token overflow
+  const recentHistory = conversationHistory.slice(-12);
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 400,
+        system: KNOWLEDGE_SYSTEM_PROMPT,
+        messages: recentHistory
+      })
+    });
+
+    if (!response.ok) throw new Error("API error " + response.status);
+    const data = await response.json();
+    const aiText = data.content[0].text;
+
+    // Add assistant reply to history
+    conversationHistory.push({ role: "assistant", content: aiText });
+
+    return aiText;
+  } catch (err) {
+    console.warn("Claude API error:", err);
+    conversationHistory.pop(); // remove failed user message
+    return null; // signals fallback to rule-based
+  }
+}
+
+function parseAIResponse(aiText) {
+  // Extract cart action tags from AI response
+  let clean = aiText;
+  let addId = null;
+  let openMenu = false;
+  let openCheckout = false;
+
+  const addMatch = clean.match(/\[ADD:([a-z0-9]+)\]/i);
+  if (addMatch) { addId = addMatch[1]; clean = clean.replace(addMatch[0], "").trim(); }
+  if (clean.includes("[OPEN_MENU]"))     { openMenu = true;     clean = clean.replace("[OPEN_MENU]","").trim(); }
+  if (clean.includes("[OPEN_CHECKOUT]")) { openCheckout = true; clean = clean.replace("[OPEN_CHECKOUT]","").trim(); }
+
+  // Generate smart chips based on response content
+  const chips = generateSmartChips(clean, addId);
+
+  return { text: clean, addId, openMenu, openCheckout, chips };
+}
+
+function generateSmartChips(text, addId) {
+  const t = text.toLowerCase();
+  if (addId) return ["Add more items", "Checkout now", "Show popular dishes"];
+  if (t.includes("spicy") || t.includes("vindaloo") || t.includes("andhra")) return ["Add Chicken Vindaloo", "Something milder", "Show full menu"];
+  if (t.includes("butter chicken") || t.includes("tikka")) return ["Add Butter Chicken", "Add Chicken Tikka Masala", "What goes with it?"];
+  if (t.includes("biryani")) return ["Chicken Biryani", "Lamb Biryani", "Veg Biryani", "Show all biryanis"];
+  if (t.includes("vegan") || t.includes("vegetarian")) return ["Show veg options", "Add Chana Masala", "Add Masala Dosa"];
+  if (t.includes("lassi") || t.includes("drink") || t.includes("cool")) return ["Add Mango Lassi", "Add Sugarcane Juice", "Show drinks"];
+  if (t.includes("allerg") || t.includes("nut") || t.includes("dairy") || t.includes("gluten")) return ["Show veg options", "Show gluten free options", "Ask about another dish"];
+  return ["Show popular dishes", "Biryani options", "Checkout now"];
+}
+
 function isKitchenOpen() {
   const now = new Date();
   if (now.getDay() === 1) return false;
@@ -1431,9 +1643,54 @@ async function sendMsg() {
   input.value = "";
   appendUser(text);
   showTyping();
-  await new Promise(r=>setTimeout(r,600+Math.random()*500));
+
+  // ── INSTANT rule-based actions (no AI needed) ──
+  const q = text.toLowerCase().trim();
+  const isStructured =
+    /^(add|yes.*add|checkout|show cart|show menu|open menu|order history|reorder)/.test(q) ||
+    /^(hi|hello|namaste|hey)/.test(q);
+
+  let reply = null;
+
+  // For structured commands — use rule-based instantly
+  if (isStructured) {
+    await new Promise(r=>setTimeout(r,400));
+    removeTyping();
+    reply = getReply(text);
+    if (reply === null) return;
+    if (reply.addId) addItem(reply.addId, true);
+    if (reply.checkout) setTimeout(openOrderPanel, 600);
+    if (reply.openMenu) setTimeout(openMenuPanel, 400);
+    if (reply.dishes) appendBotMultiDish(reply.text, reply.dishes, reply.chips||[]);
+    else appendBot(reply.text, reply.chips||[], reply.dish||null);
+    return;
+  }
+
+  // ── AGENTIC AI for everything else ──
+  const useAI = ANTHROPIC_API_KEY && ANTHROPIC_API_KEY !== "YOUR_ANTHROPIC_API_KEY";
+
+  if (useAI) {
+    try {
+      const aiRaw = await callChefKrish(text);
+      removeTyping();
+      if (aiRaw) {
+        const parsed = parseAIResponse(aiRaw);
+        if (parsed.addId) addItem(parsed.addId, true);
+        if (parsed.openMenu) setTimeout(openMenuPanel, 400);
+        if (parsed.openCheckout) setTimeout(openOrderPanel, 400);
+        appendBot(parsed.text, parsed.chips, null);
+        return;
+      }
+    } catch(e) {
+      console.warn("AI failed, falling back:", e);
+    }
+  }
+
+  // ── Fallback: rule-based ──
+  await new Promise(r=>setTimeout(r,600+Math.random()*400));
   removeTyping();
-  const reply = getReply(text);
+  reply = getReply(text);
+  if (!reply || reply === null) return;
   if (reply.addId) addItem(reply.addId, true);
   if (reply.checkout) setTimeout(openOrderPanel, 600);
   if (reply.dishes) appendBotMultiDish(reply.text, reply.dishes, reply.chips||[]);
