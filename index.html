@@ -2376,5 +2376,61 @@ function showToast(msg) {
 
 // Init handled in Google Login section above
 </script>
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- NEO4J GRAPHQL CONNECTION FIX -->
+<!-- Added without modifying existing app logic -->
+<script>
+window.NEO4J_GRAPHQL_URL = "https://b2f519e8-graphql.production-orch-0336.neo4j.io/graphql";
+window.NEO4J_API_KEY = "Dffk5Dp8Lg8kuOBrbrdbGHxRcoBr1mm6";
+
+async function queryNeo4jGraphQL(query, variables = {}) {
+  try {
+    const response = await fetch(window.NEO4J_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": window.NEO4J_API_KEY
+      },
+      body: JSON.stringify({
+        query,
+        variables
+      })
+    });
+
+    const data = await response.json();
+
+    console.log("Neo4j GraphQL Response:", data);
+
+    return data;
+  } catch (err) {
+    console.error("Neo4j GraphQL Error:", err);
+    return null;
+  }
+}
+
+// Simple browser connectivity test
+async function testNeo4jConnection() {
+  const query = `
+    query {
+      dishes {
+        name
+      }
+    }
+  `;
+
+  const result = await queryNeo4jGraphQL(query);
+
+  console.log("Connection Test:", result);
+
+  return result;
+}
+
+// OPTIONAL:
+// Open browser console and run:
+// testNeo4jConnection()
+</script>
+<!-- ════════════════════════════════════════════════ -->
+
 </body>
 </html>
