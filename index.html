@@ -590,6 +590,264 @@ html,body{height:100%;font-family:"DM Sans",sans-serif;color:var(--txt);backgrou
 <div class="toast" id="toast"></div>
 
 <script>
+// ============================================================
+// CHEF KRISH — LIVE NEO4J KNOWLEDGE GRAPH INTEGRATION
+// ============================================================
+// HOW TO USE:
+//   1. Paste this entire block inside your <script> tag
+//      (paste it right at the TOP, before all other functions)
+//   2. Find your existing chat send function and replace the
+//      OpenAI call with:
+//        const reply = await chefKrishAnswer(userMessage);
+//   3. That's it! Chef Krish now reads from your live graph.
+// ============================================================
+
+const NEO4J_URL = "https://9b0f64b5-graphql.production-orch-0336.neo4j.io/graphql";
+const NEO4J_KEY = "d16v0PBfQhJqLwunefWZuYe9rVhqQusk";
+
+// ── Core: query Neo4j GraphQL API ──────────────────────────
+async function queryNeo4j(gql) {
+  try {
+    const res = await fetch(NEO4J_URL, {
+      method: "POST",
+      mode: "cors",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": NEO4J_KEY          // ← x-api-key, NOT Authorization: Bearer
+      },
+      body: JSON.stringify({ query: gql })
+    });
+    const json = await res.json();
+    if (json.errors) console.warn("Neo4j graph error:", json.errors[0].message);
+    return json.data || {};
+  } catch (e) {
+    console.error("Neo4j fetch failed:", e);
+    return {};
+  }
+}
+
+// ── Smart intent router: detect what user is asking ────────
+async function getGraphContext(msg) {
+  const m = msg.toLowerCase();
+
+  // --- STAFF / TEAM / WAITERS / CHEFS ---
+  if (m.includes("waiter") || m.includes("who serve") || m.includes("serving staff")) {
+    const d = await queryNeo4j(`{ staff(where: { role: "Waiter" }) { name role } }`);
+    if (d.staff?.length)
+      return "OUR WAITERS (live from Knowledge Graph): " +
+        d.staff.map(s => s.name).join(", ");
+  }
+
+  if (m.includes("chef") || m.includes("cook") || m.includes("kitchen") || m.includes("head chef")) {
+    const d = await queryNeo4j(`{ staff(where: { role_IN: ["Chief Chef", "Head Chef", "Side Chef", "Sous Chef"] }) { name role } }`);
+    if (d.staff?.length)
+      return "KITCHEN TEAM (live from Knowledge Graph): " +
+        d.staff.map(s => `${s.name} — ${s.role}`).join(", ");
+  }
+
+  if (m.includes("manager")) {
+    const d = await queryNeo4j(`{ staff(where: { role: "Manager" }) { name role } }`);
+    if (d.staff?.length)
+      return "OUR MANAGER (live from Knowledge Graph): " +
+        d.staff.map(s => s.name).join(", ");
+  }
+
+  if (m.includes("staff") || m.includes("team") || m.includes("who work") || m.includes("employee")) {
+    const d = await queryNeo4j(`{ staff { name role } }`);
+    if (d.staff?.length)
+      return "OUR FULL TEAM (live from Knowledge Graph): " +
+        d.staff.map(s => `${s.name} (${s.role})`).join(", ");
+  }
+
+  // --- OPENING HOURS / TIMING ---
+  if (m.includes("hour") || m.includes("open") || m.includes("close") ||
+      m.includes("timing") || m.includes("when") || m.includes("monday") ||
+      m.includes("lunch") || m.includes("dinner") || m.includes("reservation")) {
+    const d = await queryNeo4j(`{ timings { fullSummary lunchOpen lunchClose dinnerOpen dinnerClose closedOn closedMessage timezone } }`);
+    if (d.timings?.length) {
+      const t = d.timings[0];
+      return `HOURS (live from Knowledge Graph): ${t.fullSummary} Closed: ${t.closedOn}. ${t.closedMessage}. Timezone: ${t.timezone}.`;
+    }
+  }
+
+  // --- ALLERGENS / DIETARY ---
+  if (m.includes("allerg") || m.includes("dairy") || m.includes("gluten") ||
+      m.includes("nut") || m.includes("vegan") || m.includes("intoleran") ||
+      m.includes("safe") || m.includes("sensitive")) {
+    const d = await queryNeo4j(`{ allergens { name severity warning commonIn } }`);
+    if (d.allergens?.length)
+      return "ALLERGENS WE DISCLOSE (live from Knowledge Graph): " +
+        d.allergens.map(a => `${a.name} (${a.severity} severity) — ${a.warning}. Common in: ${a.commonIn}`).join(" | ");
+  }
+
+  // --- INTERIOR / AMBIENCE / DECOR ---
+  if (m.includes("interior") || m.includes("ambian") || m.includes("decor") ||
+      m.includes("inside") || m.includes("look like") || m.includes("seating") ||
+      m.includes("atmosphere") || m.includes("vibe")) {
+    const d = await queryNeo4j(`{ restaurantFeatures(where: { type_IN: ["HAS_INTERIOR", "HAS_DECOR", "HAS_AMBIENCE", "HAS_SEATING", "HAS_LIGHTING", "HAS_AROMA"] }) { property value } }`);
+    if (d.restaurantFeatures?.length)
+      return "INTERIOR & AMBIENCE (live from Knowledge Graph): " +
+        d.restaurantFeatures.map(f => `${f.property}: ${f.value}`).join(" | ");
+  }
+
+  // --- FACILITIES ---
+  if (m.includes("park") || m.includes("wheelchair") || m.includes("facilit") ||
+      m.includes("restroom") || m.includes("bathroom") || m.includes("access")) {
+    const d = await queryNeo4j(`{ restaurantFeatures(where: { type: "HAS_FACILITY" }) { property value } }`);
+    if (d.restaurantFeatures?.length)
+      return "FACILITIES (live from Knowledge Graph): " +
+        d.restaurantFeatures.map(f => `${f.property}: ${f.value}`).join(" | ");
+  }
+
+  // --- MUST TRY / BEST / POPULAR ---
+  if (m.includes("best") || m.includes("must try") || m.includes("popular") ||
+      m.includes("special") || m.includes("recommend") || m.includes("favourite") ||
+      m.includes("famous") || m.includes("signature")) {
+    const d = await queryNeo4j(`{ dishes(where: { mustTry: "true" }) { name price description spiceLevel isVeg } }`);
+    if (d.dishes?.length)
+      return "MUST-TRY DISHES (live from Knowledge Graph): " +
+        d.dishes.map(x => `${x.name} — $${x.price}${x.isVeg === "true" ? " 🌿Veg" : ""}, ${x.spiceLevel} spice. ${x.description || ""}`).join(" | ");
+  }
+
+  // --- VEGETARIAN ---
+  if (m.includes("vegetarian") || m.includes(" veg ") || m.includes("no meat") || m.includes("plant")) {
+    const d = await queryNeo4j(`{ dishes(where: { isVeg: "true" }) { name price spiceLevel description } }`);
+    if (d.dishes?.length)
+      return "VEGETARIAN DISHES (live from Knowledge Graph): " +
+        d.dishes.map(x => `${x.name} ($${x.price}, ${x.spiceLevel})`).join(", ");
+  }
+
+  // --- VEGAN ---
+  if (m.includes("vegan")) {
+    const d = await queryNeo4j(`{ dishes(where: { isVegan: "true" }) { name price spiceLevel } }`);
+    if (d.dishes?.length)
+      return "VEGAN DISHES (live from Knowledge Graph): " +
+        d.dishes.map(x => `${x.name} ($${x.price})`).join(", ");
+  }
+
+  // --- BEVERAGES / DRINKS ---
+  if (m.includes("drink") || m.includes("beverage") || m.includes("juice") || m.includes("chai") || m.includes("lassi")) {
+    const d = await queryNeo4j(`{ dishes(where: { isBeverage: "true" }) { name price description } }`);
+    if (d.dishes?.length)
+      return "BEVERAGES (live from Knowledge Graph): " +
+        d.dishes.map(x => `${x.name} ($${x.price})`).join(", ");
+  }
+
+  // --- SPICY / SPICE LEVEL ---
+  if (m.includes("spic") || m.includes("hot dish") || m.includes("mild")) {
+    const level = m.includes("mild") ? "Mild" : m.includes("medium") ? "Medium" : "Hot";
+    const d = await queryNeo4j(`{ dishes(where: { spiceLevel: "${level}" }) { name price isVeg } }`);
+    if (d.dishes?.length)
+      return `${level.toUpperCase()} DISHES (live from Knowledge Graph): ` +
+        d.dishes.map(x => `${x.name} ($${x.price})`).join(", ");
+  }
+
+  // --- MENU / ALL DISHES ---
+  if (m.includes("menu") || m.includes("what do you serve") || m.includes("what food") || m.includes("what dishes")) {
+    const d = await queryNeo4j(`{ categories { name type mealTime } }`);
+    if (d.categories?.length)
+      return "OUR MENU CATEGORIES (live from Knowledge Graph): " +
+        d.categories.map(c => `${c.name} (${c.mealTime})`).join(", ");
+  }
+
+  // --- ABOUT US / RESTAURANT INFO ---
+  if (m.includes("about") || m.includes("tell me") || m.includes("who are you") ||
+      m.includes("your story") || m.includes("history") || m.includes("founded")) {
+    const d = await queryNeo4j(`{ aboutuses { communityRole recognition foodPhilosophy customerExperience menuType city state } }`);
+    if (d.aboutuses?.length) {
+      const a = d.aboutuses[0];
+      return `ABOUT TASTE OF INDIA (live from Knowledge Graph): Located in ${a.city}, ${a.state}. ${a.communityRole}. Known for: ${a.recognition}. ${a.customerExperience}. Menu: ${a.menuType}. Philosophy: ${a.foodPhilosophy}.`;
+    }
+  }
+
+  // --- PRICE / COST ---
+  if (m.includes("price") || m.includes("cost") || m.includes("how much") || m.includes("cheap") || m.includes("expensive")) {
+    const d = await queryNeo4j(`{ dishes { name price } }`);
+    if (d.dishes?.length) {
+      const prices = d.dishes.map(d => parseFloat(d.price)).filter(p => !isNaN(p));
+      const min = Math.min(...prices).toFixed(2);
+      const max = Math.max(...prices).toFixed(2);
+      return `PRICING (live from Knowledge Graph): Our dishes range from $${min} to $${max}. Here are some options: ` +
+        d.dishes.slice(0, 6).map(x => `${x.name} ($${x.price})`).join(", ");
+    }
+  }
+
+  return ""; // No specific graph context needed — Chef Krish answers from general knowledge
+}
+
+// ── MAIN: Chef Krish answers using live graph + Claude AI ──
+async function chefKrishAnswer(userMessage) {
+
+  // Step 1: Query live Neo4j Knowledge Graph
+  const graphContext = await getGraphContext(userMessage);
+
+  // Step 2: Build system prompt — inject real graph data
+  const systemPrompt =
+    `You are Chef Krish, the warm and knowledgeable AI assistant for Taste of India restaurant in Monroe, Louisiana.
+You were named after the real head chef, Krish, who leads the kitchen with passion and expertise.
+The restaurant is known for outstanding authentic Indian cuisine, a beautiful traditional interior with warm golden lighting, Indian cultural decor, and exceptional personal service.
+You love Indian food and genuinely care about every customer's dining experience.`
+    + (graphContext
+      ? `\n\nIMPORTANT — Use ONLY this verified real data from our live Knowledge Graph. Never guess or make up names, prices, or hours:\n${graphContext}`
+      : "")
+    + `\n\nAlways be warm, friendly and helpful. Answer in 2-4 sentences. Suggest a dish or pairing where it naturally fits. If asked about staff names, hours, or allergens, use ONLY the data provided above — never invent details.`;
+
+  // Step 3: Call Claude AI (Anthropic) with graph-grounded context
+  // ⬇️ REPLACE THIS SECTION if you're using OpenAI instead of Claude
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": "my-api-key",   // ← Replace with your Anthropic key
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-allow-browser": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",        // fast + cheap for chatbot
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: systemPrompt + "\n\nCustomer asks: " + userMessage
+        }
+      ]
+    })
+  });
+
+  const data = await res.json();
+  return data.content?.[0]?.text
+    || "I'm having a small issue right now — please try again in a moment!";
+}
+
+// ── IF YOU USE OPENAI instead of Anthropic, use this version ──
+// Replace the fetch block above with this:
+/*
+async function chefKrishAnswer(userMessage) {
+  const graphContext = await getGraphContext(userMessage);
+  const systemPrompt = `You are Chef Krish, warm AI assistant for Taste of India, Monroe LA.`
+    + (graphContext ? `\nReal data from our Knowledge Graph — use ONLY this:\n${graphContext}` : "")
+    + `\nBe warm, answer in 2-4 sentences, suggest a dish where relevant.`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer YOUR_OPENAI_KEY_HERE"
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userMessage  }
+      ],
+      max_tokens: 300,
+      temperature: 0.7
+    })
+  });
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "Please try again in a moment!";
+}
+*/
 window.onerror = function(msg, src, line, col, err) {
   // Suppress non-critical errors (font loading, CORS warnings)
   if (msg && (msg.includes('font') || msg.includes('Loading'))) return true;
@@ -1124,9 +1382,70 @@ gj=Gulab Jamun, vpak=Veg Pakora, vs=Veg Samosa, c65=Chicken 65, chk=Chicken Hakk
 When they want to see the menu: [OPEN_MENU]
 When they want to checkout: [OPEN_CHECKOUT]`;
 
+// ═══════════════════════════════════════════════════════
+// NEO4J KNOWLEDGE GRAPH — Live data for Chef Krish
+// ═══════════════════════════════════════════════════════
+const NEO4J_URL = "https://9b0f64b5-graphql.production-orch-0336.neo4j.io/graphql";
+const NEO4J_KEY = "d16v0PBfQhJqLwunefWZuYe9rVhqQusk";
+
+async function queryNeo4j(gql) {
+  try {
+    const res = await fetch(NEO4J_URL, {
+      method: "POST", mode: "cors",
+      headers: { "Content-Type": "application/json", "x-api-key": NEO4J_KEY },
+      body: JSON.stringify({ query: gql })
+    });
+    const json = await res.json();
+    return json.data || {};
+  } catch(e) { return {}; }
+}
+
+async function getGraphContext(msg) {
+  const m = msg.toLowerCase();
+
+  if (m.includes("waiter")) {
+    const d = await queryNeo4j(`{ staff(where:{role:"Waiter"}){ name role } }`);
+    if (d.staff?.length) return "WAITERS: " + d.staff.map(s=>s.name).join(", ");
+  }
+  if (m.includes("chef") || m.includes("cook") || m.includes("kitchen")) {
+    const d = await queryNeo4j(`{ staff(where:{role_IN:["Chief Chef","Head Chef","Side Chef","Sous Chef"]}){ name role } }`);
+    if (d.staff?.length) return "KITCHEN TEAM: " + d.staff.map(s=>`${s.name}(${s.role})`).join(", ");
+  }
+  if (m.includes("manager")) {
+    const d = await queryNeo4j(`{ staff(where:{role:"Manager"}){ name } }`);
+    if (d.staff?.length) return "MANAGER: " + d.staff.map(s=>s.name).join(", ");
+  }
+  if (m.includes("staff") || m.includes("team") || m.includes("who work")) {
+    const d = await queryNeo4j(`{ staff{ name role } }`);
+    if (d.staff?.length) return "FULL TEAM: " + d.staff.map(s=>`${s.name}(${s.role})`).join(", ");
+  }
+  if (m.includes("hour") || m.includes("open") || m.includes("close") || m.includes("when") || m.includes("monday")) {
+    const d = await queryNeo4j(`{ timings{ fullSummary closedOn closedMessage timezone } }`);
+    if (d.timings?.length) return `HOURS: ${d.timings[0].fullSummary} Closed: ${d.timings[0].closedOn}. ${d.timings[0].closedMessage}`;
+  }
+  if (m.includes("allerg") || m.includes("dairy") || m.includes("gluten") || m.includes("nut") || m.includes("safe")) {
+    const d = await queryNeo4j(`{ allergens{ name severity warning commonIn } }`);
+    if (d.allergens?.length) return "ALLERGENS: " + d.allergens.map(a=>`${a.name}(${a.severity}): ${a.warning}`).join(" | ");
+  }
+  if (m.includes("interior") || m.includes("ambian") || m.includes("decor") || m.includes("vibe") || m.includes("atmosphere")) {
+    const d = await queryNeo4j(`{ restaurantFeatures(where:{type_IN:["HAS_INTERIOR","HAS_DECOR","HAS_AMBIENCE","HAS_SEATING","HAS_LIGHTING"]}){ property value } }`);
+    if (d.restaurantFeatures?.length) return "INTERIOR: " + d.restaurantFeatures.map(f=>`${f.property}: ${f.value}`).join(" | ");
+  }
+  if (m.includes("about") || m.includes("your story") || m.includes("who are you")) {
+    const d = await queryNeo4j(`{ aboutuses{ communityRole recognition foodPhilosophy customerExperience city state } }`);
+    if (d.aboutuses?.length) { const a=d.aboutuses[0]; return `ABOUT: ${a.communityRole}. Known for: ${a.recognition}. ${a.customerExperience}`; }
+  }
+  return "";
+}
+
 async function callChefKrish(userMessage) {
   // Add user message to history
-  conversationHistory.push({ role: "user", content: userMessage });
+ const graphContext = await getGraphContext(userMessage);
+ const enrichedMessage = graphContext
+   ? `[LIVE DATA FROM KNOWLEDGE GRAPH — use ONLY this, never guess]\n${graphContext}\n\nCustomer asks: ${userMessage}`
+   : userMessage;
+
+ conversationHistory.push({ role: "user", content: enrichedMessage });
 
   // Keep last 12 messages to avoid token overflow
   const recentHistory = conversationHistory.slice(-12);
